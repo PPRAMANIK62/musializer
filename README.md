@@ -1,4 +1,4 @@
-# Musualizer
+# Musializer
 
 References:
 - Music: https://www.youtube.com/@nu11_ft
