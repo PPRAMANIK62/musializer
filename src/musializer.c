@@ -99,12 +99,12 @@ float amp(float complex z) {
  */
 void callback(void *bufferData, unsigned int frames) {
     /* Need at least N frames to fill FFT buffer */
-    if (frames < N) return;
+    if (frames > N) frames = N;
 
     Frame *fs = bufferData;
 
     /* Extract left channel samples for FFT input */
-    for (size_t i = 0; i < N; i++) {
+    for (size_t i = 0; i < frames; i++) {
         in[i] = fs[i].left;
     }
 
@@ -113,7 +113,7 @@ void callback(void *bufferData, unsigned int frames) {
 
     /* Find maximum amplitude for normalization */
     max_amp = 0.0f;
-    for (size_t i = 0; i < N; i++) {
+    for (size_t i = 0; i < frames; i++) {
         float a = amp(out[i]);
         if (max_amp < a) max_amp = a;
     }
