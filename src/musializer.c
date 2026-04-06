@@ -37,13 +37,30 @@ char *shift_args(int *argc, char ***argv) {
 const char *libplug_file_name = "libplug.so";
 void *libplug = NULL;
 
-plug_hello_t plug_hello = NULL;
-plug_init_t plug_init = NULL;
-plug_update_t plug_update = NULL;
-plug_pre_reload_t plug_pre_reload = NULL;
-plug_post_reload_t plug_post_reload = NULL;
+/*
+ * Declare one variable per plug function via the X-macro.
+ *
+ * Hot-reload build (-DHOTRELOAD):
+ *   Expands to:  plug_hello_t *plug_hello = NULL;  etc.
+ *   Each is a function pointer, initially NULL, filled by dlsym() inside
+ *   reload_libplug().
+ *
+ * Static build (no -DHOTRELOAD):
+ *   Expands to:  plug_hello_t plug_hello;  etc.
+ *   These are extern declarations resolved at link time from plug.c,
+ *   so no dlopen/dlsym is needed and reload_libplug() is a no-op.
+ */
+#ifdef HOTRELOAD
+#define PLUG(name) name##_t *name = NULL;
+#else
+#define PLUG(name) name##_t name;
+#endif
+LIST_OF_PLUGS
+#undef PLUG
+
 Plug plug = {0};
 
+#ifdef HOTRELOAD
 /**
  * Reloads libplug.so and re-binds all function pointers.
  *
@@ -71,45 +88,21 @@ bool reload_libplug(void) {
         return false;
     }
 
-    plug_hello = dlsym(libplug, "plug_hello");
-    if (plug_hello == NULL) {
-        fprintf(stderr, "ERROR: could not find plug_hello symbol in %s: %s",
-                libplug_file_name, dlerror());
-        return false;
+#define PLUG(name)                                                             \
+    name = dlsym(libplug, #name);                                              \
+    if (name == NULL) {                                                        \
+        fprintf(stderr, "ERROR: could not find %s symbol in %s: %s", #name,    \
+                libplug_file_name, dlerror());                                 \
+        return false;                                                          \
     }
-
-    plug_init = dlsym(libplug, "plug_init");
-    if (plug_init == NULL) {
-        fprintf(stderr, "ERROR: could not find plug_init symbol in %s: %s",
-                libplug_file_name, dlerror());
-        return false;
-    }
-
-    plug_pre_reload = dlsym(libplug, "plug_pre_reload");
-    if (plug_pre_reload == NULL) {
-        fprintf(stderr,
-                "ERROR: could not find plug_pre_reload symbol in %s: %s",
-                libplug_file_name, dlerror());
-        return false;
-    }
-
-    plug_post_reload = dlsym(libplug, "plug_post_reload");
-    if (plug_post_reload == NULL) {
-        fprintf(stderr,
-                "ERROR: could not find plug_post_reload symbol in %s: %s",
-                libplug_file_name, dlerror());
-        return false;
-    }
-
-    plug_update = dlsym(libplug, "plug_update");
-    if (plug_update == NULL) {
-        fprintf(stderr, "ERROR: could not find plug_update symbol in %s: %s",
-                libplug_file_name, dlerror());
-        return false;
-    }
+    LIST_OF_PLUGS
+#undef PLUG
 
     return true;
 }
+#else
+#define reload_libplug() true
+#endif
 
 int main(int argc, char **argv) {
     if (!reload_libplug())
@@ -145,6 +138,18 @@ int main(int argc, char **argv) {
         plug_update(&plug);
     }
 
-    // TODO: proper cleanup (UnloadMusicStream, CloseAudioDevice, CloseWindow)
+    /* Detach callback before unloading so the audio thread doesn't call
+     * into memory that is about to be freed. */
+    plug_pre_reload(&plug);
+
+    UnloadMusicStream(plug.music);
+    CloseAudioDevice();
+    CloseWindow();
+
+#ifdef HOTRELOAD
+    if (libplug != NULL)
+        dlclose(libplug);
+#endif
+
     return 0;
 }

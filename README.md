@@ -14,10 +14,20 @@ A real-time audio frequency spectrum visualizer using FFT (Fast Fourier Transfor
 ./build.sh
 ```
 
-This produces two binaries in `./build/`:
+By default this builds in **hot-reload mode** (`-DHOTRELOAD`), producing two
+artifacts in `./build/`:
 
 - `musializer` — main executable
 - `libplug.so` — hot-reloadable plugin (visualization logic)
+
+To build as a **single static binary** (no hot-reload), swap the commented
+lines at the bottom of `build.sh`:
+
+```bash
+# enable this line:
+clang $CFLAGS -o ./build/musializer ./src/plug.c ./src/musializer.c $LIBS -L./build/
+# and disable the two hot-reload lines below it
+```
 
 ## Usage
 
@@ -52,7 +62,7 @@ musializer/
 ├── src/
 │   ├── musializer.c    # Main application — window, hot-reload loop
 │   ├── plug.c          # Plugin — audio callback, FFT, rendering
-│   ├── plug.h          # Plug state struct and function pointer types
+│   ├── plug.h          # Plug state struct, function typedefs, LIST_OF_PLUGS X-macro
 │   └── fft.h           # FFT/DFT implementation (header-only, educational)
 ├── build.sh            # Build script
 └── README.md
@@ -70,6 +80,7 @@ musializer/
 - Raylib: https://www.raylib.com/
 - FFT: https://www.youtube.com/watch?v=nmgFG7PUHfo
 - Euler's Formula: https://en.wikipedia.org/wiki/Euler's_formula
+- X macro: https://en.wikipedia.org/wiki/X_macro
 
 ---
 

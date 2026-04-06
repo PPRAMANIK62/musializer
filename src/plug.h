@@ -18,10 +18,40 @@ typedef struct {
     Music music;
 } Plug;
 
-typedef void (*plug_hello_t)(void);
-typedef void (*plug_init_t)(Plug *plug, const char *file_path);
-typedef void (*plug_pre_reload_t)(Plug *plug);
-typedef void (*plug_post_reload_t)(Plug *plug);
-typedef void (*plug_update_t)(Plug *plug);
+/*
+ * Function-type typedefs (not function-pointer typedefs).
+ *
+ * Writing `void(foo_t)(...)` defines a function *type*, whereas
+ * `void (*foo_t)(...)` would define a function-*pointer* type.
+ * Using the bare function type lets the X-macro in musializer.c
+ * derive both forms from the same name:
+ *   - Hot-reload build:  `foo_t *foo`  → a pointer, filled by dlsym()
+ *   - Static build:      `foo_t  foo`  → a direct symbol reference
+ */
+typedef void(plug_hello_t)(void);
+typedef void(plug_init_t)(Plug *plug, const char *file_path);
+typedef void(plug_pre_reload_t)(Plug *plug);
+typedef void(plug_post_reload_t)(Plug *plug);
+typedef void(plug_update_t)(Plug *plug);
+
+/*
+ * X-macro table of every function exported by libplug.
+ *
+ * Defining PLUG(name) before expanding LIST_OF_PLUGS lets one macro
+ * drive three distinct uses in musializer.c without repetition:
+ *
+ *   1. Variable declarations  →  `name##_t *name = NULL;`  (hot-reload)
+ *                                `name##_t  name;`          (static)
+ *   2. dlsym() binding        →  `name = dlsym(libplug, #name);`
+ *
+ * To add a new plug function: declare it here and implement it in plug.c.
+ * musializer.c picks it up automatically — no other changes needed.
+ */
+#define LIST_OF_PLUGS                                                          \
+    PLUG(plug_hello)                                                           \
+    PLUG(plug_init)                                                            \
+    PLUG(plug_pre_reload)                                                      \
+    PLUG(plug_post_reload)                                                     \
+    PLUG(plug_update)
 
 #endif // PLUG_H_

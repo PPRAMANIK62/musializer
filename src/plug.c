@@ -23,9 +23,11 @@
 #define N (1 << 14)
 
 /*
- * why are we doing this ??
- * -> raylib audio processor callback doesn't accept user data
- * -> not hot reloadable
+ * Global FFT buffers — kept at file scope for two reasons:
+ *   1. The raylib audio callback has no user-data parameter, so we can't
+ *      pass a pointer to plug-local state.
+ *   2. Globals survive hot-reloads (they are in the .so's BSS, re-initialized
+ *      each load), which is acceptable for a transient audio buffer.
  */
 float in[N];
 float complex out[N];
@@ -148,7 +150,6 @@ void plug_post_reload(Plug *plug) {
 void plug_update(Plug *plug) {
     UpdateMusicStream(plug->music);
 
-    /* Spacebar: play/pause toggle */
     if (IsKeyPressed(KEY_SPACE)) {
         if (IsMusicStreamPlaying(plug->music)) {
             PauseMusicStream(plug->music);
@@ -189,7 +190,9 @@ void plug_update(Plug *plug) {
             max_amp = a;
     }
 
-    float step = 1.06;
+    /* Geometric ratio between consecutive frequency bands (~17.5 bands/octave).
+     * Mirrors the logarithmic nature of human pitch perception. */
+    float step = 1.06f;
     size_t m = 0;
     for (float f = 20.0f; (size_t)f < N; f *= step) {
         m++;
@@ -198,12 +201,21 @@ void plug_update(Plug *plug) {
     float cell_width = (float)w / m;
     m = 0;
     for (float f = 20.0f; (size_t)f < N; f *= step) {
-        float f1 = f * step;
+        float f1 = f * step; /* upper edge of this band (exclusive) */
+
+        /*
+         * Average the amplitudes of all FFT bins that fall inside the band
+         * [f, f1).  Multiple bins can land in one band at low frequencies
+         * (where step*f - f < 1 bin wide), so we sum and divide rather than
+         * taking a single bin.  The loop guard `q < N` prevents reading past
+         * the Nyquist bin.
+         */
         float a = 0.0f;
         for (size_t q = (size_t)f; q < N && q < (size_t)f1; q++) {
             a += amp(out[q]);
         }
-        a /= (size_t)f1 - (size_t)f + 1;
+        a /= (size_t)f1 - (size_t)f + 1; /* +1 avoids divide-by-zero when both
+                                            ends round to the same bin */
         /**
          * Get normalized amplitude for this frequency bin
          * Dividing by max_amp scales all bars relative to the loudest
@@ -217,7 +229,7 @@ void plug_update(Plug *plug) {
          * Y starts at (h/2 - height) so bar grows upward from h/2
          */
         DrawRectangle(m * cell_width, h / 2 - h / 2 * t, cell_width, h / 2 * t,
-                      RED);
+                      BLUE);
         m++;
     }
 
