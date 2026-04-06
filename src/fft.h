@@ -1,7 +1,5 @@
 /**
- * =============================================================================
- * DFT & FFT - EDUCATIONAL IMPLEMENTATION
- * =============================================================================
+ * DFT & FFT - Educational Implementation
  *
  * This file contains two implementations of the Fourier Transform:
  *   1. dft() - Naive O(N²) Discrete Fourier Transform
@@ -68,23 +66,19 @@
  * Mathematical basis: This is the orthogonality property of sinusoids.
  * Sine waves at different frequencies are "orthogonal" - their inner
  * product (sum of element-wise multiplication) is zero.
- *
- * =============================================================================
  */
 
 #ifndef FFT_H
 #define FFT_H
 
 #include <assert.h>
-#include <math.h>
-#include <raylib.h>  /* For the PI constant - raylib defines PI as 3.14159... */
-#include <stdio.h>   /* For printf() to display results */
 #include <complex.h> /* For complex number support: float complex, cexp(), I, creal(), cimag() */
+#include <math.h>
+#include <raylib.h>
+#include <stdio.h>
 
 /**
- * =============================================================================
- * DFT - Discrete Fourier Transform (Naive Implementation)
- * =============================================================================
+ * DFT - Discrete Fourier Transform (Naive O(N²) Implementation)
  *
  * COMPLEXITY: O(N²)
  * For each of N frequency bins, we iterate through all N samples.
@@ -119,9 +113,7 @@ static inline void dft(float in[], float complex out[], size_t n) {
 }
 
 /**
- * =============================================================================
- * FFT - Fast Fourier Transform (Cooley-Tukey Algorithm)
- * =============================================================================
+ * FFT - Fast Fourier Transform (Cooley-Tukey Algorithm, O(N log N))
  *
  * COMPLEXITY: O(N log N)
  * Recursively divides the problem in half, achieving massive speedup.
@@ -185,9 +177,10 @@ static inline void dft(float in[], float complex out[], size_t n) {
  * @param out     Output spectrum (complex coefficients)
  * @param n       Number of samples to process at this recursion level
  */
-static inline void fft(float in[], size_t stride, float complex out[], size_t n) {
+static inline void fft(float in[], size_t stride, float complex out[],
+                       size_t n) {
     assert(n > 0);
-    
+
     /**
      * BASE CASE: Single element
      * The DFT of a single sample is just that sample itself.
@@ -197,10 +190,10 @@ static inline void fft(float in[], size_t stride, float complex out[], size_t n)
         out[0] = in[0];
         return;
     }
-    
+
     /**
      * RECURSIVE CASE: Divide and Conquer
-     * 
+     *
      * Split into even and odd indexed samples:
      *   - Even: in[0], in[2], in[4], ... → stored in out[0..n/2-1]
      *   - Odd:  in[1], in[3], in[5], ... → stored in out[n/2..n-1]
@@ -208,12 +201,12 @@ static inline void fft(float in[], size_t stride, float complex out[], size_t n)
      * Double the stride to skip every other element.
      * Add 'stride' to pointer to start at odd indices.
      */
-    fft(in, stride*2, out, n/2);                     /* Even indices */
-    fft(in + stride, stride*2, out + n/2, n/2);      /* Odd indices */
-    
+    fft(in, stride * 2, out, n / 2);                  /* Even indices */
+    fft(in + stride, stride * 2, out + n / 2, n / 2); /* Odd indices */
+
     /**
      * COMBINE: Butterfly Operation
-     * 
+     *
      * For each k from 0 to N/2-1:
      *   v = W_N^k * O[k]  = e^(-i*2π*k/N) * out[k + n/2]
      *   X[k]     = E[k] + v
@@ -222,37 +215,40 @@ static inline void fft(float in[], size_t stride, float complex out[], size_t n)
      * The twiddle factor e^(-i*2π*k/N) rotates the odd contribution
      * before combining with the even contribution.
      */
-    for (size_t k = 0; k < n/2; k++) {
-        float t = (float)k/n;
-        float complex v = cexp(-I * 2*PI*t) * out[k + n/2];  /* Twiddle × Odd */
-        float complex e = out[k];                             /* Even result */
-        out[k]       = e + v;  /* First half:  E[k] + W*O[k] */
-        out[k + n/2] = e - v;  /* Second half: E[k] - W*O[k] */
+    for (size_t k = 0; k < n / 2; k++) {
+        float t = (float)k / n;
+        float complex v =
+            cexp(-I * 2 * PI * t) * out[k + n / 2]; /* Twiddle × Odd */
+        float complex e = out[k];                   /* Even result */
+        out[k] = e + v;         /* First half:  E[k] + W*O[k] */
+        out[k + n / 2] = e - v; /* Second half: E[k] - W*O[k] */
     }
 }
 
 /**
- * =============================================================================
- * TEST - FFT Test Function
- * =============================================================================
- * Call this function to verify FFT correctness with a known test signal.
+ * Verifies FFT correctness with a known test signal.
+ *
+ * Synthesizes cos(2π*1*t) + sin(2π*2*t) + cos(2π*3*t), runs FFT, and
+ * prints the complex spectrum. Expected output shows energy at bins 1, 2, 3
+ * (and their mirrors at N-1, N-2, N-3) with cosines in the real part and
+ * sines in the imaginary part.
  */
 static inline int fft_test(void) {
-    /**
-     * N = Number of samples in our signal
-     *
-     * This also determines our frequency resolution:
-     * - With N samples, we can detect N different frequency "bins"
-     * - Frequency bin f represents the frequency: f * (sample_rate / N)
-     *
-     * IMPORTANT: For FFT, N must be a power of 2 (2, 4, 8, 16, 32, 64, ...)
-     * 
-     * In real audio applications, N is typically:
-     *   - 256, 512, 1024, 2048, 4096, etc.
-     *   - Larger N = better frequency resolution, but more latency
-     */
-    #define TEST_N 16
-    
+/**
+ * N = Number of samples in our signal
+ *
+ * This also determines our frequency resolution:
+ * - With N samples, we can detect N different frequency "bins"
+ * - Frequency bin f represents the frequency: f * (sample_rate / N)
+ *
+ * IMPORTANT: For FFT, N must be a power of 2 (2, 4, 8, 16, 32, 64, ...)
+ *
+ * In real audio applications, N is typically:
+ *   - 256, 512, 1024, 2048, 4096, etc.
+ *   - Larger N = better frequency resolution, but more latency
+ */
+#define TEST_N 16
+
     /**
      * Input buffer:  Time-domain signal (amplitude vs time)
      * Output buffer: Frequency-domain data (complex amplitude vs frequency)
@@ -267,9 +263,7 @@ static inline int fft_test(void) {
     float complex out[TEST_N];
 
     /**
-     * =========================================================================
-     * STEP 1: SYNTHESIZE A TEST SIGNAL (Mixing Frequencies)
-     * =========================================================================
+     * Step 1: Synthesize a test signal by mixing three frequencies.
      *
      * We create a test signal by adding three waves together:
      *   - cos(2π*1*t): Frequency 1 as COSINE → appears in REAL part
@@ -279,7 +273,8 @@ static inline int fft_test(void) {
      * This is like playing three notes simultaneously on a piano.
      *
      * WHY MIX COS AND SIN?
-     * This demonstrates a key property: the DFT/FFT separates phase information.
+     * This demonstrates a key property: the DFT/FFT separates phase
+     * information.
      * - Cosine components → appear in the REAL part of the output
      * - Sine components   → appear in the IMAGINARY part of the output
      *
@@ -302,7 +297,7 @@ static inline int fft_test(void) {
          * point twice in a periodic signal.
          */
         float t = (float)i / TEST_N;
-        
+
         /**
          * The '2*PI*f*t' pattern comes from the general wave formula:
          *   cos(2πft) or sin(2πft) where f is frequency and t is time
@@ -313,13 +308,12 @@ static inline int fft_test(void) {
          * - Frequency 2: completes 2 cycles over the sample window
          * - Frequency 3: completes 3 cycles over the sample window
          */
-        in[i] = cosf(2 * PI * t * 1) + sinf(2 * PI * t * 2) + cosf(2 * PI * t * 3);
+        in[i] =
+            cosf(2 * PI * t * 1) + sinf(2 * PI * t * 2) + cosf(2 * PI * t * 3);
     }
 
     /**
-     * =========================================================================
-     * STEP 2: COMPUTE THE FOURIER TRANSFORM
-     * =========================================================================
+     * Step 2: Compute the Fourier Transform.
      *
      * You can use either:
      *   dft(in, out, n);     // O(N²) - slow but simple
@@ -332,9 +326,7 @@ static inline int fft_test(void) {
     fft(in, 1, out, TEST_N);
 
     /**
-     * =========================================================================
-     * STEP 3: DISPLAY RESULTS
-     * =========================================================================
+     * Step 3: Display results.
      *
      * Print the frequency spectrum - showing the complex coefficient of each
      * frequency component detected in our signal.
@@ -377,9 +369,7 @@ static inline int fft_test(void) {
 }
 
 /**
- * =============================================================================
- * COMPARISON: DFT vs FFT
- * =============================================================================
+ * DFT vs FFT comparison and further reading.
  *
  * | Aspect      | DFT              | FFT (Cooley-Tukey)        |
  * |-------------|------------------|---------------------------|
@@ -392,9 +382,7 @@ static inline int fft_test(void) {
  *
  * For real-time audio (44.1kHz, 2048 samples), FFT is essential.
  *
- * =============================================================================
- * FURTHER READING & ADVANCED TOPICS
- * =============================================================================
+ * Further reading & advanced topics:
  *
  * 1. WINDOWING:
  *    Real-world signals aren't perfectly periodic within our sample window.
@@ -422,8 +410,6 @@ static inline int fft_test(void) {
  *    - Low frequencies (bass)   → left side of visualization
  *    - High frequencies (treble) → right side of visualization
  *    - Magnitude values (cabs) drive bar heights or color intensity
- *
- * =============================================================================
  */
 
 #endif /* FFT_H */
